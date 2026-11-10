@@ -3,6 +3,7 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
+from urllib.parse import urlparse
 
 import httpx
 
@@ -48,23 +49,46 @@ class DeepSeek:
         )
 
     def payload(self, messages, stream):
-        return {
+        payload = {
             "model": self.settings.model,
             "messages": messages,
             "stream": stream,
             "max_tokens": 2200,
-            "thinking": {"type": "disabled"},
         }
+        if urlparse(self.settings.api_base).hostname == "api.deepseek.com":
+            payload["thinking"] = {"type": "disabled"}
+        return payload
 
     @staticmethod
     def check_status(response):
-        if response.status_code >= 400:
+        if not 200 <= response.status_code < 300:
             labels = {
                 401: "模型服务鉴权失败，请检查服务器的 API key。",
                 402: "模型服务余额不足，请检查 API 账户。",
                 429: "模型服务暂时限流，请稍后重试。",
             }
             raise ProviderError(labels.get(response.status_code, f"模型服务返回错误（HTTP {response.status_code}），请稍后重试。"))
+
+    async def test_connection(self) -> dict:
+        """Authenticate with GET /models; never send a prompt or imported text."""
+        try:
+            async with asyncio.timeout(10):
+                async with self.client() as client:
+                    response = await client.get("models", timeout=httpx.Timeout(8.0, connect=5.0))
+                    self.check_status(response)
+                    if len(response.content) > 1000000:
+                        raise ProviderError("模型列表响应过大，无法完成检查。")
+                    payload = response.json()
+                    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                        raise ValueError("Invalid models response")
+                    models = {row["id"] for row in payload["data"] if isinstance(row, dict) and isinstance(row.get("id"), str)}
+                    if self.settings.model not in models:
+                        return {"ok": False, "message": "连接与鉴权成功，但模型列表中没有所填模型，请检查模型名。"}
+                    return {"ok": True, "message": "连接与鉴权成功，已在服务提供的列表中找到该模型。此检查未生成回答或发送文章。"}
+        except (httpx.HTTPError, TimeoutError) as exc:
+            raise ProviderError("无法连接模型服务或检查超时，请确认 API 地址、网络与服务器配置。") from exc
+        except (ValueError, TypeError) as exc:
+            raise ProviderError("服务未返回兼容的模型列表，无法确认模型；请核对 API 基础地址。") from exc
 
     async def stream(self, question, sources, persona, history) -> AsyncIterator[str]:
         messages = [{"role": "system", "content": PERSONAS[persona] + "\n" + GROUNDING}]

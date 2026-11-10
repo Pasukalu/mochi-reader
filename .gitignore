@@ -23,3 +23,5 @@ Thumbs.db
 .vscode/
 dist/
 extension/web/
+**/provider-settings.json
+**/.provider-settings-*.tmp

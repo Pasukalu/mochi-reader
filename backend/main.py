@@ -5,6 +5,7 @@ import json
 import re
 import time
 from contextlib import aclosing
+from dataclasses import replace
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -13,10 +14,10 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from .config import ROOT, Settings, settings_from_env
+from .config import ROOT, Settings, load_provider_settings, provider_origin, save_provider_settings, settings_from_env
 from .provider import DeepSeek, ProviderError
 from .retrieval import retrieve, tokenize
-from .schemas import ChatInput, DocumentInput, StudyInput, StudyOutput
+from .schemas import ChatInput, DocumentInput, ProviderSettingsInput, StudyInput, StudyOutput
 from .storage import Store
 
 
@@ -64,12 +65,24 @@ def demo_study(sources: list[dict]) -> StudyOutput:
 
 
 def create_app(settings: Settings | None = None, provider: DeepSeek | None = None) -> FastAPI:
-    settings = settings or settings_from_env()
+    settings = load_provider_settings(settings or settings_from_env())
     store = Store(settings.database)
-    provider = provider or DeepSeek(settings)
     app = FastAPI(title="Mochi Reader", version="0.1.0", description="Local-first lexical RAG with traceable paragraph citations")
     app.state.store = store
     app.state.settings = settings
+    app.state.settings_lock = asyncio.Lock()
+    app.state.last_provider_test = float("-inf")
+
+    def provider_for(snapshot: Settings):
+        # A real/MockTransport DeepSeek adapter is rebuilt for each immutable
+        # snapshot. Custom non-DeepSeek test doubles remain fixed by design.
+        if provider is not None and not isinstance(provider, DeepSeek):
+            return provider
+        return DeepSeek(snapshot, transport=provider.transport if provider is not None else None)
+
+    def public_settings(snapshot: Settings):
+        return {"api_base": snapshot.api_base, "model": snapshot.model,
+                "has_api_key": bool(snapshot.api_key), "mode": snapshot.mode}
 
     @app.exception_handler(RequestValidationError)
     async def input_validation_error(request: Request, exc: RequestValidationError):
@@ -85,7 +98,7 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
     app.add_middleware(
         CORSMiddleware, allow_origins=list(settings.cors_origins),
         allow_origin_regex=extension_origin,
-        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type"], allow_credentials=False,
     )
 
@@ -96,7 +109,7 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
             return JSONResponse({"detail": "This origin is not allowed to access Mochi."}, status_code=403)
         # Guard oversized input even before JSON/Pydantic parsing. JSON escaping can
         # expand 80k characters; the streamed body is bounded independently of headers.
-        if request.url.path.startswith("/api/") and request.method == "POST":
+        if request.url.path.startswith("/api/") and request.method in {"POST", "PUT"}:
             received = bytearray()
             async for block in request.stream():
                 received.extend(block)
@@ -113,7 +126,44 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
 
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "mode": settings.mode, "model": settings.model if settings.mode == "live" else "extractive-demo"}
+        snapshot = app.state.settings
+        return {"status": "ok", "mode": snapshot.mode, "model": snapshot.model if snapshot.mode == "live" else "extractive-demo"}
+
+    @app.get("/api/settings")
+    def read_settings():
+        return public_settings(app.state.settings)
+
+    @app.put("/api/settings")
+    async def update_settings(body: ProviderSettingsInput):
+        async with app.state.settings_lock:
+            current = app.state.settings
+            if current.api_key and provider_origin(current.api_base) != provider_origin(body.api_base) and not (body.api_key or body.clear_api_key):
+                raise HTTPException(422, "切换 API 服务地址时，请填写该服务的新密钥，或先清除已保存密钥，避免误发旧密钥。")
+            key = "" if body.clear_api_key else (body.api_key or current.api_key)
+            updated = replace(current, api_base=body.api_base, model=body.model, api_key=key)
+            try:
+                # The file is replaced before the active snapshot changes, so a
+                # failed disk write cannot pretend that settings were saved.
+                await asyncio.to_thread(save_provider_settings, updated)
+            except OSError as exc:
+                raise HTTPException(500, "无法保存本机模型设置，请检查设置目录的写入权限。") from exc
+            app.state.settings = updated
+            return public_settings(updated)
+
+    @app.post("/api/settings/test")
+    async def test_settings():
+        now = time.monotonic()
+        if now - app.state.last_provider_test < 1:
+            raise HTTPException(429, "连接检查过于频繁，请稍等一秒再试。")
+        app.state.last_provider_test = now
+        snapshot = app.state.settings
+        if not snapshot.api_key:
+            return {"ok": False, "message": "尚未保存 API key；当前为离线摘录模式。", "model": snapshot.model}
+        try:
+            result = await provider_for(snapshot).test_connection()
+            return {**result, "model": snapshot.model}
+        except ProviderError as exc:
+            return {"ok": False, "message": str(exc), "model": snapshot.model}
 
     @app.get("/api/documents")
     def documents():
@@ -135,6 +185,8 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
 
     @app.post("/api/chat")
     async def chat(body: ChatInput, request: Request):
+        snapshot = app.state.settings
+        active_provider = provider_for(snapshot)
         get_doc(body.document_id)
         chunks = store.chunks(body.document_id)
         found = retrieve(chunks, body.question)
@@ -149,13 +201,13 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
 
         async def generate():
             start = time.perf_counter()
-            yield event("sources", {"sources": sources, "mode": settings.mode})
+            yield event("sources", {"sources": sources, "mode": snapshot.mode})
             answer = ""
             try:
                 if not sources:
                     answer = "当前文章没有提供足够依据。请换一个与原文关键词相关的问题，或导入另一篇文章。"
                     yield event("token", {"text": answer})
-                elif settings.mode == "demo":
+                elif snapshot.mode == "demo":
                     greeting = {
                         "whale": "鲸鱼娘把相关原文捞上来啦～",
                         "mochi": "糯米帮你找到这些原文啦～",
@@ -169,7 +221,7 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
                         yield event("token", {"text": answer[index:index + 28]})
                         await asyncio.sleep(0)
                 else:
-                    async with aclosing(provider.stream(body.question, sources, body.persona, body.history)) as stream:
+                    async with aclosing(active_provider.stream(body.question, sources, body.persona, body.history)) as stream:
                         async for token in stream:
                             if await request.is_disconnected():
                                 return
@@ -181,7 +233,7 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
                 citations = sorted(references & valid_ids, key=lambda s: int(s[1:]))
                 yield event("done", {
                     "citations": citations, "elapsed_ms": round((time.perf_counter() - start) * 1000),
-                    "mode": settings.mode, "grounded": bool(citations) and not invalid,
+                    "mode": snapshot.mode, "grounded": bool(citations) and not invalid,
                     "invalid_citations": sorted(invalid),
                 })
             except ProviderError as exc:
@@ -191,15 +243,17 @@ def create_app(settings: Settings | None = None, provider: DeepSeek | None = Non
 
     @app.post("/api/study")
     async def study(body: StudyInput):
+        snapshot = app.state.settings
+        active_provider = provider_for(snapshot)
         get_doc(body.document_id)
         sources = [public_source(s) for s in overview_sources(store.chunks(body.document_id), 6)]
         if not sources:
             raise HTTPException(404, "文章已被删除，请重新导入。")
         try:
-            output = demo_study(sources) if settings.mode == "demo" else await provider.study(sources, body.persona)
+            output = demo_study(sources) if snapshot.mode == "demo" else await active_provider.study(sources, body.persona)
         except ProviderError as exc:
             raise HTTPException(502, str(exc)) from exc
-        return {"mode": settings.mode, **output.model_dump(), "sources": sources}
+        return {"mode": snapshot.mode, **output.model_dump(), "sources": sources}
 
     web = ROOT / "web"
     if web.exists():

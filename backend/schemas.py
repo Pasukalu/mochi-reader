@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .config import validate_api_base, validate_api_key, validate_model
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -47,6 +49,34 @@ class ChatInput(StrictModel):
 class StudyInput(StrictModel):
     document_id: str = Field(min_length=1, max_length=64)
     persona: Literal["whale", "mochi", "senpai"] = "whale"
+
+
+class ProviderSettingsInput(StrictModel):
+    api_base: str = Field(min_length=1, max_length=2048)
+    model: str = Field(min_length=1, max_length=200)
+    api_key: str | None = Field(default=None, max_length=4096)
+    clear_api_key: bool = False
+
+    @field_validator("api_base")
+    @classmethod
+    def valid_base(cls, value: str) -> str:
+        return validate_api_base(value)
+
+    @field_validator("model")
+    @classmethod
+    def valid_model(cls, value: str) -> str:
+        return validate_model(value)
+
+    @field_validator("api_key")
+    @classmethod
+    def valid_key(cls, value: str | None) -> str | None:
+        return validate_api_key(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def unambiguous_key_action(self):
+        if self.clear_api_key and self.api_key:
+            raise ValueError("清除密钥与填写新密钥不能同时进行。")
+        return self
 
 
 class Card(StrictModel):

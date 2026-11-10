@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f2eb">
+  <meta name="description" content="Mochi Reader：鲸鱼娘陪你读技术文档。网页配置 DeepSeek 或兼容 API，提供带原文引用的问答、学习卡、自测与笔记导出。">
   <title>Mochi Reader · 糯米阅读搭子</title>
   <link rel="icon" href="./mochi.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
@@ -20,12 +21,12 @@
       <div class="document-list" id="document-list"><p class="muted empty-small">还没有文章，开始第一篇吧。</p></div>
       <div class="rail-bottom">
         <div class="local-note"><span class="pulse"></span> 资料保存在你的电脑<small>模型连接与数据去向，可随时查看</small></div>
-        <button class="nav settings-nav" id="settings-button"><span>⚙</span> 连接设置 <span id="connection-dot" class="connection-dot"></span></button>
+        <button class="nav settings-nav" id="settings-button"><span>⚙</span> API 连接设置 <span id="connection-dot" class="connection-dot"></span></button>
         <div class="rail-footer">MADE FOR CURIOUS MINDS <span>✦</span></div>
       </div>
     </aside>
     <main>
-      <header class="topbar"><div><button class="breadcrumb" id="mobile-read">阅读</button><span class="slash">/</span><button id="mobile-cards">学习卡片</button></div><div class="topbar-right"><span class="mode-badge" id="mode-badge">正在连接…</span><button class="icon-button" id="help-button" aria-label="使用说明">?</button></div></header>
+      <header class="topbar"><div><button class="breadcrumb" id="mobile-read">阅读</button><span class="slash">/</span><button id="mobile-cards">学习卡片</button></div><div class="topbar-right"><span class="mode-badge" id="mode-badge">正在连接…</span><button class="icon-button" id="help-button" aria-label="API 连接设置">⚙</button></div></header>
       <section class="workspace" id="reader-view">
         <div class="page-heading"><div class="eyebrow">A LITTLE CURIOSITY, EVERY DAY</div><h1>把难懂的，变成你的<span class="hand-star">✳</span></h1><p>读一篇文章，多一点理解。和鲸鱼娘一起，捞起知识海里的线索。</p></div>
         <div class="reading-grid">
@@ -57,8 +58,26 @@
       <footer class="statusbar"><span id="status" role="status">糯米准备好了。</span><span>Mochi Reader · v0.1</span></footer>
     </main>
   </div>
-  <dialog id="import-dialog"><form id="import-form"><div class="dialog-heading"><div><div class="eyebrow">START SOMETHING GOOD</div><h2>导入阅读材料</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">×</button></div><p class="dialog-note">正文存入本机服务。启用 DeepSeek 后，提问相关片段会发送到模型提供商。</p><button type="button" class="secondary hidden" id="capture-button">▧ 读取当前网页 / 选中文本</button><label for="article-title">文章标题</label><input id="article-title" required maxlength="200" placeholder="例如：读懂 RAG 的检索过程"><label for="article-url">来源链接 <span class="optional">选填</span></label><input id="article-url" type="url" maxlength="2048" placeholder="https://…"><label for="article-text">文章正文</label><textarea id="article-text" required minlength="30" maxlength="80000" rows="9" placeholder="粘贴文章内容，或用浏览器插件读取当前页面…"></textarea><div class="dialog-actions"><button class="text-button" type="button" id="fill-sample">使用示例</button><button class="primary" type="submit" id="save-article">导入并开始阅读 →</button></div></form></dialog>
-  <dialog id="settings-dialog"><div class="dialog-heading"><div><div class="eyebrow">YOUR LOCAL COMPANION</div><h2>连接设置</h2></div><button class="icon-button" data-close aria-label="关闭">×</button></div><div class="settings-card"><span class="pulse"></span><div id="connection-info">正在检查本机服务…</div></div><p>默认连接 <code>http://127.0.0.1:8765</code>。API 密钥只在本机服务的环境变量中配置，浏览器不保存密钥。</p><p>没有密钥时进入「演示 · 原文摘录」模式：可检索、引用、生成摘录卡和自测。连接 DeepSeek 后可使用自然语言讲解与生成式学习卡。</p><p>资料存储在本机 SQLite 数据库；启用在线模型时，相关原文片段与问题会发送到 DeepSeek。没有遥测。</p><button class="primary" id="retry-connection">重新检查连接</button></dialog>
+  <dialog id="import-dialog"><form id="import-form"><div class="dialog-heading"><div><div class="eyebrow">START SOMETHING GOOD</div><h2>导入阅读材料</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">×</button></div><p class="dialog-note">正文存入本机服务。启用在线模型后，提问相关片段会发送到你配置的模型服务。</p><button type="button" class="secondary hidden" id="capture-button">▧ 读取当前网页 / 选中文本</button><label for="article-title">文章标题</label><input id="article-title" required maxlength="200" placeholder="例如：读懂 RAG 的检索过程"><label for="article-url">来源链接 <span class="optional">选填</span></label><input id="article-url" type="url" maxlength="2048" placeholder="https://…"><label for="article-text">文章正文</label><textarea id="article-text" required minlength="30" maxlength="80000" rows="9" placeholder="粘贴文章内容，或用浏览器插件读取当前页面…"></textarea><div class="dialog-actions"><button class="text-button" type="button" id="fill-sample">使用示例</button><button class="primary" type="submit" id="save-article">导入并开始阅读 →</button></div></form></dialog>
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <div class="dialog-heading"><div><div class="eyebrow">YOUR MODEL, YOUR READING BUDDY</div><h2 id="settings-title">API 连接设置</h2></div><button class="icon-button" data-close aria-label="关闭">×</button></div>
+    <div class="settings-card"><span class="pulse"></span><div id="connection-info">正在检查本机服务…</div></div>
+    <p class="settings-intro">在这里连接 DeepSeek 或兼容 Chat Completions 的模型服务。保存后立即生效，无需重启。</p>
+    <form id="settings-form" autocomplete="off">
+      <label for="api-base">接口地址 <span class="optional">Base URL</span></label>
+      <input id="api-base" type="url" maxlength="2048" required placeholder="https://api.deepseek.com" spellcheck="false" autocapitalize="off">
+      <p class="field-hint">填写基础地址，例如 https://api.deepseek.com；不包含 /chat/completions。也支持本机 HTTP 兼容服务。</p>
+      <label for="api-model">模型名称</label>
+      <input id="api-model" maxlength="200" required placeholder="deepseek-flash" spellcheck="false" autocapitalize="off">
+      <label for="api-key">API 密钥 <span id="api-key-state" class="optional">尚未配置</span></label>
+      <div class="secret-input"><input id="api-key" type="password" maxlength="512" placeholder="输入你的 API Key" autocomplete="new-password" spellcheck="false" autocapitalize="off"><button type="button" id="toggle-api-key" aria-label="显示密钥" aria-pressed="false">显示</button></div>
+      <p class="field-hint" id="api-key-hint">密钥只提交给本机服务，保存在本机配置文件中；浏览器不持久保存，也不会回显已保存的密钥。</p>
+      <p class="settings-feedback" id="settings-feedback" role="status" aria-live="polite">正在读取当前配置…</p>
+      <div class="settings-actions"><button class="secondary" type="button" id="test-api">测试已保存配置</button><button class="primary" type="submit" id="save-api-settings">保存并应用</button></div>
+      <div class="settings-secondary-actions"><button class="text-button danger-button" type="button" id="clear-api-key">清除密钥，返回演示</button><button class="text-button" type="button" id="retry-connection">重新检查本机服务</button></div>
+    </form>
+    <p class="settings-privacy">测试连接只读取模型列表，不发送文章，也不生成内容。启用在线模型后，问题和相关原文片段会发送到你配置的模型服务。清除密钥后可继续使用原文摘录演示。</p>
+  </dialog>
   <dialog id="character-dialog"><div class="dialog-heading"><div><div class="eyebrow">MEET YOUR READING BUDDY</div><h2 id="character-title">鲸鱼娘 · 小汐</h2></div><button class="icon-button" data-close aria-label="关闭">×</button></div><div class="character-profile"><img id="character-image" src="./mochi.svg" alt="阅读搭子角色立绘"><div><div class="character-tags" id="character-tags"></div><p id="character-description"></p><blockquote id="character-quote"></blockquote></div></div><p class="character-disclosure">鲸鱼娘角色受 DeepSeek 社区二创文化启发。「小汐」是本项目别名；本项目与 DeepSeek 无官方合作关系。讲解风格通过提示词配置，演示模式仅输出原文摘录。</p></dialog>
   <script type="module" src="./app.js"></script>
 </body>

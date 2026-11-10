@@ -3,7 +3,7 @@ import { sampleArticle } from './sample.js';
 const $ = (id) => document.getElementById(id);
 const isExtension = Boolean(globalThis.chrome?.runtime?.id);
 const API = isExtension ? 'http://127.0.0.1:8765' : location.origin;
-const state = { documents: [], current: null, health: null, history: [], study: null, busy: false, controller: null };
+const state = { documents: [], current: null, health: null, history: [], study: null, busy: false, controller: null, settings: null, settingsBusy: false };
 const initialWelcome = $('chat-log').innerHTML;
 const PERSONAS = {
   whale: { name: '鲸鱼娘 · 小汐', image: './whale.png', hello: '你好呀，我是鲸鱼娘', bubble: '先读懂，再开饭～', tags: ['蓝白鲸尾', '聪明又好奇', '白米饭爱好者'], description: '在知识海里打捞线索的鲸鱼娘，偶尔有点小傲娇。喜欢把难懂的概念讲成直观的类比，遇到没有依据的地方会坦率停下来。', quote: '哼，这个知识点本鲸捞到了。先看原文，再下结论～' },
@@ -50,7 +50,7 @@ async function api(path, { method = 'GET', body, timeout = 15000, signal } = {})
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
-      throw new Error(typeof payload.detail === 'string' ? payload.detail : `请求未完成（${response.status}），请检查输入或本机服务。`);
+      throw new Error(typeof payload.detail === 'string' ? payload.detail : Array.isArray(payload.detail) ? payload.detail.map((item) => item.msg).join('；') : `请求未完成（${response.status}），请检查输入或本机服务。`);
     }
     return await response.json();
   } catch (error) {
@@ -68,17 +68,19 @@ function updateActions() {
   $('stop-button').classList.toggle('hidden', !state.controller);
   $('send-button').classList.toggle('hidden', Boolean(state.controller));
   document.querySelectorAll('.doc-button').forEach((button) => { button.disabled = state.busy; });
-  $('composer-note').textContent = !state.health ? '本机服务未连接 · 打开连接设置查看说明' : !state.current ? '先导入一篇文章，开始有依据的对话' : state.health.mode === 'demo' ? '演示 · 原文摘录模式 / Enter 发送' : '相关片段将发送到 DeepSeek / Enter 发送';
+  $('composer-note').textContent = !state.health ? '本机服务未连接 · 打开连接设置查看说明' : !state.current ? '先导入一篇文章，开始有依据的对话' : state.health.mode === 'demo' ? '演示 · 原文摘录模式 / Enter 发送' : '相关片段将发送到配置的模型服务 / Enter 发送';
+  updateSettingsActions();
 }
 
 async function connect() {
   try {
     state.health = await api('/health', { timeout: 5000 });
     const live = state.health.mode === 'live';
-    $('mode-badge').textContent = live ? 'DeepSeek · 已配置' : '演示 · 原文摘录';
+    $('mode-badge').textContent = live ? `${state.health.model} · 已配置` : '演示 · 原文摘录';
+    $('mode-badge').title = live ? `已配置模型：${state.health.model}；可用性需测试连接` : '无密钥的原文摘录演示模式';
     $('mode-badge').classList.remove('offline');
     $('connection-dot').classList.add('on');
-    $('connection-info').replaceChildren(node('strong', '', live ? '已连接本机 · 在线模型已配置' : '已连接本机 · 无密钥演示模式'), node('small', '', `模型：${state.health.model} · ${API}`));
+    $('connection-info').replaceChildren(node('strong', '', live ? '已连接本机 · API 已配置' : '已连接本机 · 无密钥演示模式'), node('small', '', `模型：${state.health.model} · ${API}`));
     await refreshDocuments();
     if (!state.current) {
       const active = readLocal('mochi.active');
@@ -94,6 +96,99 @@ async function connect() {
     setStatus(error.message, true);
   }
   updateActions();
+}
+
+function settingsFeedback(message, error = false) {
+  $('settings-feedback').textContent = message;
+  $('settings-feedback').classList.toggle('error', error);
+}
+function clearKeyInput() {
+  $('api-key').value = '';
+  $('api-key').type = 'password';
+  $('toggle-api-key').textContent = '显示';
+  $('toggle-api-key').setAttribute('aria-label', '显示密钥');
+  $('toggle-api-key').setAttribute('aria-pressed', 'false');
+}
+function normalizeBase(value) { return value.trim().replace(/\/+$/, ''); }
+function updateSettingsHint() {
+  const saved = state.settings;
+  $('api-key-state').textContent = saved?.has_api_key ? '已保存 · 留空保留' : '尚未配置';
+  $('api-key').placeholder = saved?.has_api_key ? '留空保留已保存的密钥，输入新值可替换' : '输入你的 API Key';
+  const changed = saved?.has_api_key && normalizeBase($('api-base').value) !== normalizeBase(saved.api_base);
+  $('api-key-hint').textContent = changed ? '更换模型服务地址时，请填写对应的新密钥。旧密钥不会自动转发到另一个服务。' : '密钥只提交给本机服务，以明文保存在本机配置文件中；浏览器不持久保存，也不会回显已保存的密钥。';
+}
+function updateSettingsActions() {
+  const disabled = state.settingsBusy || state.busy || !state.settings;
+  for (const id of ['api-base', 'api-model', 'api-key', 'toggle-api-key', 'save-api-settings']) $(id).disabled = disabled;
+  $('test-api').disabled = disabled || !state.settings?.has_api_key;
+  $('clear-api-key').disabled = disabled || !state.settings?.has_api_key;
+  $('retry-connection').disabled = state.settingsBusy;
+}
+function applySettings(config) {
+  state.settings = config;
+  $('api-base').value = config.api_base;
+  $('api-model').value = config.model;
+  clearKeyInput();
+  updateSettingsHint();
+}
+async function loadSettings() {
+  state.settingsBusy = true; updateSettingsActions();
+  settingsFeedback('正在读取当前配置…');
+  try {
+    applySettings(await api('/settings'));
+    settingsFeedback(state.busy ? '当前阅读请求结束后即可修改配置。' : state.settings.has_api_key ? '已保存 API 配置。填写新密钥可替换，留空会保留原值。' : '尚未配置密钥，当前可使用原文摘录演示。');
+  } catch (error) {
+    state.settings = null;
+    settingsFeedback(error.message, true);
+  } finally { state.settingsBusy = false; updateSettingsActions(); }
+}
+async function openSettings() {
+  clearKeyInput();
+  if (!$('settings-dialog').open) $('settings-dialog').showModal();
+  await loadSettings();
+}
+async function saveSettings(event) {
+  event.preventDefault();
+  if (state.settingsBusy || state.busy || !state.settings) return;
+  const body = { api_base: normalizeBase($('api-base').value), model: $('api-model').value.trim() };
+  const newKey = $('api-key').value.trim();
+  if (newKey) body.api_key = newKey;
+  state.settingsBusy = true; updateSettingsActions();
+  settingsFeedback('正在保存到本机…');
+  try {
+    applySettings(await api('/settings', { method: 'PUT', body }));
+    state.history = [];
+    await connect();
+    settingsFeedback(state.settings.mode === 'live' ? '配置已保存并生效。可点击「测试已保存配置」检查连接。' : '配置已保存，当前为无密钥演示模式。');
+    toast('API 设置已保存，无需重启。');
+  } catch (error) { settingsFeedback(error.message, true); }
+  finally { state.settingsBusy = false; updateSettingsActions(); }
+}
+async function testSettings() {
+  if (state.settingsBusy || state.busy || !state.settings?.has_api_key) return;
+  const dirty = $('api-key').value.trim() || normalizeBase($('api-base').value) !== normalizeBase(state.settings.api_base) || $('api-model').value.trim() !== state.settings.model;
+  if (dirty) { settingsFeedback('请先保存修改，再测试已保存配置。', true); return; }
+  state.settingsBusy = true; updateSettingsActions();
+  $('test-api').textContent = '正在测试…';
+  settingsFeedback('正在检查鉴权和模型列表，不发送文章、不生成内容…');
+  try {
+    const result = await api('/settings/test', { method: 'POST', timeout: 15000 });
+    settingsFeedback(result.message, !result.ok);
+  } catch (error) { settingsFeedback(error.message, true); }
+  finally { state.settingsBusy = false; $('test-api').textContent = '测试已保存配置'; updateSettingsActions(); }
+}
+async function clearAPIKey() {
+  if (state.settingsBusy || state.busy || !state.settings?.has_api_key || !confirm('清除本机保存的 API 密钥并返回原文摘录演示模式？')) return;
+  state.settingsBusy = true; updateSettingsActions();
+  settingsFeedback('正在清除密钥…');
+  try {
+    applySettings(await api('/settings', { method: 'PUT', body: { api_base: state.settings.api_base, model: state.settings.model, clear_api_key: true } }));
+    state.history = [];
+    await connect();
+    settingsFeedback('密钥已清除，已返回原文摘录演示模式。');
+    toast('密钥已清除。');
+  } catch (error) { settingsFeedback(error.message, true); }
+  finally { state.settingsBusy = false; updateSettingsActions(); }
 }
 
 async function refreshDocuments() {
@@ -311,7 +406,7 @@ async function ask(question) {
     renderCitedText(answer.body, text, sources, prefix);
     if (sources.length) answer.wrapper.append(sourcesDetails(sources, prefix));
     const footer = node('div', 'message-footer');
-    footer.append(node('span', '', doneData?.mode === 'demo' ? '演示 · 原文摘录' : 'DeepSeek'), node('span', '', '·'), node('span', '', `${((doneData?.elapsed_ms || 0) / 1000).toFixed(1)}s`));
+    footer.append(node('span', '', doneData?.mode === 'demo' ? '演示 · 原文摘录' : state.health?.model || '在线模型'), node('span', '', '·'), node('span', '', `${((doneData?.elapsed_ms || 0) / 1000).toFixed(1)}s`));
     if (doneData?.citations?.length) footer.append(node('span', '', doneData.grounded ? '· 引用编号已校验' : '· 引用编号需核对'));
     answer.wrapper.append(footer);
     state.history.push({ role: 'user', content: question }, { role: 'assistant', content: text.slice(0, 4000) || '资料不足。' });
@@ -351,7 +446,7 @@ async function generateStudy(force = false) {
 }
 function renderStudy() {
   $('card-count').textContent = state.study?.cards.length || 0;
-  $('study-mode').textContent = state.study ? state.study.mode === 'demo' ? '演示 · 摘录卡与原文填空' : 'DeepSeek · 生成内容请核对' : '尚未生成';
+  $('study-mode').textContent = state.study ? state.study.mode === 'demo' ? '演示 · 摘录卡与原文填空' : '在线模型 · 生成内容请核对' : '尚未生成';
   if (!state.study) {
     const empty = node('div', 'study-empty panel');
     const image = node('img'); image.src = personaConfig().image; image.alt = '';
@@ -391,7 +486,7 @@ function renderStudy() {
 function exportMarkdown() {
   if (!state.study || !state.current) return;
   const data = state.study;
-  const lines = [`# ${state.current.title}`, '', `模式：${data.mode === 'demo' ? '演示 · 原文摘录' : 'DeepSeek 生成'}`, ...(state.current.url ? [`来源：${state.current.url}`] : []), '', '## 学习卡', ''];
+  const lines = [`# ${state.current.title}`, '', `模式：${data.mode === 'demo' ? '演示 · 原文摘录' : '在线模型生成'}`, ...(state.current.url ? [`来源：${state.current.url}`] : []), '', '## 学习卡', ''];
   data.cards.forEach((card, i) => lines.push(`### ${i + 1}. ${card.title}`, '', `${card.body} [${card.source_id}]`, ''));
   lines.push('## 自测', '');
   data.quiz.forEach((quiz, i) => lines.push(`### ${i + 1}. ${quiz.question}`, '', ...quiz.options.map((option, n) => `${String.fromCharCode(65 + n)}. ${option}`), '', `答案：${String.fromCharCode(65 + quiz.answer)}。${quiz.explanation} [${quiz.source_id}]`, ''));
@@ -444,9 +539,15 @@ $('nav-read').addEventListener('click', () => showView('read'));
 $('mobile-read').addEventListener('click', () => showView('read'));
 $('nav-cards').addEventListener('click', () => showView('cards'));
 $('mobile-cards').addEventListener('click', () => showView('cards'));
-$('settings-button').addEventListener('click', () => $('settings-dialog').showModal());
-$('help-button').addEventListener('click', () => $('settings-dialog').showModal());
-$('retry-connection').addEventListener('click', connect);
+$('settings-button').addEventListener('click', openSettings);
+$('help-button').addEventListener('click', openSettings);
+$('retry-connection').addEventListener('click', async () => { await connect(); if (!state.settings) await loadSettings(); });
+$('settings-form').addEventListener('submit', saveSettings);
+$('test-api').addEventListener('click', testSettings);
+$('clear-api-key').addEventListener('click', clearAPIKey);
+$('api-base').addEventListener('input', updateSettingsHint);
+$('toggle-api-key').addEventListener('click', () => { const show = $('api-key').type === 'password'; $('api-key').type = show ? 'text' : 'password'; $('toggle-api-key').textContent = show ? '隐藏' : '显示'; $('toggle-api-key').setAttribute('aria-label', show ? '隐藏密钥' : '显示密钥'); $('toggle-api-key').setAttribute('aria-pressed', String(show)); });
+$('settings-dialog').addEventListener('close', clearKeyInput);
 $('capture-button').addEventListener('click', capturePage);
 $('stop-button').addEventListener('click', () => state.controller?.abort());
 $('persona').addEventListener('change', () => { state.history = []; writeLocal('mochi.persona', $('persona').value); resetChat(); loadSavedStudy(); });

@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -37,6 +38,18 @@ def test_stream_handles_fragmented_multibyte_utf8_and_heartbeats():
         wire = ": keep-alive\n\ndata: " + json.dumps({"choices": [{"delta": {"content": "词法检索 [S1]"}, "finish_reason": "stop"}]}, ensure_ascii=False) + "\n\ndata: [DONE]\n\n"
         return httpx.Response(200, stream=FragmentedStream(wire.encode()))
     assert collect(provider(handler)) == "词法检索 [S1]"
+
+
+def test_generic_compatible_provider_does_not_receive_deepseek_only_fields():
+    def handler(request):
+        payload = json.loads(request.content)
+        assert "thinking" not in payload
+        assert set(payload) == {"model", "messages", "stream", "max_tokens"}
+        wire = 'data: {"choices":[{"delta":{"content":"Evidence [S1]"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+        return httpx.Response(200, stream=FragmentedStream(wire.encode()))
+    adapter = provider(handler)
+    adapter.settings = replace(adapter.settings, api_base="https://compatible.example/v1", model="generic-model")
+    assert collect(adapter) == "Evidence [S1]"
 
 
 @pytest.mark.parametrize("wire", [

@@ -6,7 +6,7 @@
 
 **把难懂的，变成你的。**
 
-让鲸鱼娘陪你读懂技术文章：问问题、查原文、做卡片，再检查自己是否读懂。
+Mochi Reader：鲸鱼娘陪你读技术文档，网页配置 DeepSeek / 兼容 API，带原文引用的问答、学习卡与自测。
 
 Python · FastAPI · BM25 RAG · SQLite · Chrome MV3 · 原生 JavaScript
 
@@ -22,7 +22,8 @@ Python · FastAPI · BM25 RAG · SQLite · Chrome MV3 · 原生 JavaScript
 - **提问时带上证据。** 中英混合词法处理与 BM25 检索相关原文，回答附片段引用，方便回看。
 - **把理解留住。** 生成最多 3 张学习卡与 3 道四选一自测题，导出 Markdown。
 - **选择你的阅读搭子。** 默认「鲸鱼娘 · 小汐」，也可切换温柔糯米与严谨学姐。角色影响讲解口吻，原文依据与引用规则保持一致。
-- **先在本机跑起来。** SQLite 保存阅读材料，前端无需安装依赖或构建，密钥仅在后端配置。
+- **在网页连接你的模型。** 在「API 连接设置」填写 API Key、接口地址和模型，保存后立即生效；也可不填密钥直接体验演示模式。
+- **先在本机跑起来。** SQLite 保存阅读材料，前端无需安装依赖或构建，模型配置保存在本机服务。
 
 鲸鱼娘的蓝白配色、鲸尾与米饭元素受社区拟人创作启发。「小汐」是本项目为阅读搭子取的别名，不是社区统一名称，也不表示 DeepSeek 官方联名或官方人设。角色与素材说明见 [characters.md](docs/characters.md)。当前没有 Live2D 或语音交互。
 
@@ -68,9 +69,24 @@ uvicorn backend.main:app --host 127.0.0.1 --port 8765
 
 打开 [http://127.0.0.1:8765](http://127.0.0.1:8765)。保持服务运行，即可使用网页工作台和扩展。
 
-### 连接 DeepSeek
+### 在网页连接 DeepSeek / 兼容 API
 
-无需密钥也可以开始。要启用真实模型，在项目根目录创建 `.env`，写入：
+无需密钥也可以开始。要启用真实模型：
+
+1. 打开网页或扩展中的「API 连接设置」。
+2. 填写 **API Key**、**接口 Base URL** 和 **模型**。DeepSeek 默认地址为 `https://api.deepseek.com`，默认模型为 `deepseek-flash`。
+3. 保存配置，立即用于后续请求，无需重启服务。
+4. 可点击「测试连接」检查模型列表接口是否可用；它只请求提供商的 `GET /models`，不生成回答，也不发送文章。测试通过不代表该模型的生成功能或余额已经验证。
+
+API Key 输入框留空会保留已有密钥；要回到演示模式，请使用显式的「清除密钥」操作。切换服务的域名、协议或端口时，请重新填写该服务的密钥，或显式清除旧密钥。
+
+密钥在保存时经本机服务写入**明文配置文件**，浏览器不会把它存入 `localStorage`，重新打开设置也不会读回完整密钥。配置文件默认与 SQLite 数据库同目录，通常为 `data/provider-settings.json`，已忽略默认 `data/` 目录。
+
+兼容服务需支持 Chat Completions 的 SSE 问答；生成学习卡还需支持 `response_format: {"type":"json_object"}`。填写 API 基础地址（例如服务要求的 `https://…/v1`），应用会在其后请求 `chat/completions` 与 `models`。部分服务不提供模型列表，连接测试失败时可手动检查问答，不能仅据此认定聊天接口不可用。
+
+### 高级选项：环境变量 / .env
+
+也可以在项目根目录创建 `.env`，提供初始默认值：
 
 ```dotenv
 DEEPSEEK_API_KEY=你的密钥
@@ -78,14 +94,15 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-flash
 ```
 
-保存后重启服务，检查「连接设置」及模式标记。`.env` 已被 Git 忽略，不要将密钥写入前端或提交到仓库。模型名以 [DeepSeek 官方文档](https://api-docs.deepseek.com/quick_start/pricing/) 为准，也可改成自己使用的兼容接口与模型。
+修改环境变量后重启服务。**网页已保存的配置优先于环境变量默认值**，因此修改 `.env` 不会覆盖已保存的网页设置。`.env` 已被 Git 忽略。模型名以 [DeepSeek 官方文档](https://api-docs.deepseek.com/quick_start/pricing/) 为准，兼容接口请使用其支持的地址和模型名。
 
 | 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `DEEPSEEK_API_KEY` | 空 | 空值为演示模式，有值为真实模型模式 |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | HTTPS API 基础地址，也允许本机 HTTP 兼容服务 |
-| `DEEPSEEK_MODEL` | `deepseek-flash` | 提供商接受的模型名 |
+| `DEEPSEEK_API_KEY` | 空 | 初始密钥；未保存网页配置时，空值为演示模式 |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | 初始 HTTPS API 基础地址，也允许本机 HTTP 兼容服务 |
+| `DEEPSEEK_MODEL` | `deepseek-flash` | 初始模型名 |
 | `MOCHI_DB_PATH` | `data/mochi.sqlite3` | 本地数据库路径 |
+| `MOCHI_SETTINGS_PATH` | 数据库同目录的 `provider-settings.json` | 可选：覆盖本机模型配置文件位置 |
 | `MOCHI_CORS_ORIGINS` | `http://127.0.0.1:8765,http://localhost:8765` | 允许的网页来源，以逗号分隔；使用内置工作台无需修改 |
 
 ## 浏览器扩展
@@ -107,7 +124,7 @@ DEEPSEEK_MODEL=deepseek-flash
 
 阅读正文与来源信息存入本机 SQLite。后端不将问答历史与学习卡保存为长期知识库；具体实现见 [架构文档](docs/architecture.md)。项目不包含遥测。
 
-**启用 DeepSeek 后，问题与检索到的相关原文片段会发送至配置的模型提供商。** 本地保存资料不代表模型处理也在本地。网页读取、导入前会提示数据去向；密钥保留在本机后端。
+**启用真实模型后，问题与检索到的相关原文片段会发送至配置的模型提供商。** 本地保存资料不代表模型处理也在本地。网页读取、导入前会提示数据去向；密钥由本机后端保存，并用于向配置的提供商鉴权。网页设置的明文配置文件默认位于 `data/provider-settings.json`。
 
 工作台提供删除文档的入口；本地数据库文件位置由 `MOCHI_DB_PATH` 决定。
 
