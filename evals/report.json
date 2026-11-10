@@ -1,0 +1,151 @@
+{
+  "scope": "hand-written synthetic lexical retrieval regression; not LLM quality",
+  "k": 3,
+  "cases": 14,
+  "answerable_cases": 10,
+  "unanswerable_cases": 4,
+  "recall_at_3": 1.0,
+  "mrr_at_3": 1.0,
+  "unanswerable_empty_retrieval_rate": 1.0,
+  "details": [
+    {
+      "query": "How does BM25 score term frequency?",
+      "expected": [
+        "S1"
+      ],
+      "retrieved": [
+        "S1"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "向量检索和嵌入模型有什么关系？",
+      "expected": [
+        "S2"
+      ],
+      "retrieved": [
+        "S2",
+        "S7",
+        "S4"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "SQLite WAL transactions",
+      "expected": [
+        "S3"
+      ],
+      "retrieved": [
+        "S3"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "流式响应 SSE 如何拆分？",
+      "expected": [
+        "S4"
+      ],
+      "retrieved": [
+        "S4"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "引用编号合法能保证回答忠实吗？",
+      "expected": [
+        "S5"
+      ],
+      "retrieved": [
+        "S5",
+        "S7"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "What is prompt injection?",
+      "expected": [
+        "S6"
+      ],
+      "retrieved": [
+        "S6"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "文本分块大小影响什么？",
+      "expected": [
+        "S7"
+      ],
+      "retrieved": [
+        "S7",
+        "S2",
+        "S4"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "Recall and MRR evidence",
+      "expected": [
+        "S8"
+      ],
+      "retrieved": [
+        "S8"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "inverse document frequency",
+      "expected": [
+        "S1"
+      ],
+      "retrieved": [
+        "S1"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "UTF-8 网络拆分",
+      "expected": [
+        "S4"
+      ],
+      "retrieved": [
+        "S4"
+      ],
+      "recall": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "query": "北京天气预报温度",
+      "expected": [],
+      "retrieved": [],
+      "empty_retrieval": true
+    },
+    {
+      "query": "Kubernetes autoscaling configuration",
+      "expected": [],
+      "retrieved": [],
+      "empty_retrieval": true
+    },
+    {
+      "query": "莎士比亚出生年份",
+      "expected": [],
+      "retrieved": [],
+      "empty_retrieval": true
+    },
+    {
+      "query": "GPU CUDA kernel optimization",
+      "expected": [],
+      "retrieved": [],
+      "empty_retrieval": true
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f2eb">
+  <title>Mochi Reader · 糯米阅读搭子</title>
+  <link rel="icon" href="./mochi.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <a class="brand" href="./index.html"><img src="./mochi.svg" alt=""><span>mochi<span class="brand-dot">.</span><small>你的技术阅读搭子</small></span></a>
+      <button class="primary new-reading" id="new-reading"><span>＋</span> 开始新阅读</button>
+      <div class="rail-label">WORKSPACE <span>本地工作区</span></div>
+      <button class="nav active" id="nav-read"><span>▧</span> 阅读工作台 <span class="nav-count" id="doc-count">0</span></button>
+      <button class="nav" id="nav-cards"><span>◇</span> 学习卡片 <span class="nav-count" id="card-count">0</span></button>
+      <div class="rail-label recent-label">RECENT <span>最近阅读</span></div>
+      <div class="document-list" id="document-list"><p class="muted empty-small">还没有文章，开始第一篇吧。</p></div>
+      <div class="rail-bottom">
+        <div class="local-note"><span class="pulse"></span> 资料保存在你的电脑<small>模型连接与数据去向，可随时查看</small></div>
+        <button class="nav settings-nav" id="settings-button"><span>⚙</span> 连接设置 <span id="connection-dot" class="connection-dot"></span></button>
+        <div class="rail-footer">MADE FOR CURIOUS MINDS <span>✦</span></div>
+      </div>
+    </aside>
+    <main>
+      <header class="topbar"><div><button class="breadcrumb" id="mobile-read">阅读</button><span class="slash">/</span><button id="mobile-cards">学习卡片</button></div><div class="topbar-right"><span class="mode-badge" id="mode-badge">正在连接…</span><button class="icon-button" id="help-button" aria-label="使用说明">?</button></div></header>
+      <section class="workspace" id="reader-view">
+        <div class="page-heading"><div class="eyebrow">A LITTLE CURIOSITY, EVERY DAY</div><h1>把难懂的，变成你的<span class="hand-star">✳</span></h1><p>读一篇文章，多一点理解。和鲸鱼娘一起，捞起知识海里的线索。</p></div>
+        <div class="reading-grid">
+          <section class="source-panel panel">
+            <div class="panel-heading"><h2><span class="heading-icon">▤</span> 阅读材料</h2><div class="source-heading-actions"><span class="tiny-label" id="source-state">等待导入</span><button class="icon-button" id="change-reading" aria-label="导入另一篇文章">＋</button></div></div>
+            <div id="source-empty" class="source-empty">
+              <div class="paper-stack"><span class="paper-line"></span><span class="paper-line"></span><span class="paper-line"></span><span class="paper-spark">✦</span></div>
+              <h3>今天，想读懂什么？</h3><p>导入技术文章、文档或一段代码说明，<br>把你的好奇心交给糯米。</p>
+              <button class="primary" id="import-button">＋ 导入阅读材料</button>
+              <button class="text-button" id="sample-button">先试试示例文章 <span>↗</span></button>
+              <div class="privacy-hint">⌁ 主动导入 · 本地存储 · 随时删除</div>
+            </div>
+            <article id="source-article" class="source-article hidden"></article>
+            <div class="source-footer"><span id="source-meta">支持粘贴文本 / 浏览器插件读取当前页</span><button class="text-button hidden" id="delete-document">删除</button></div>
+          </section>
+          <section class="companion-panel panel">
+            <div class="companion-heading"><div class="companion-identity"><img src="./mochi.svg" alt="阅读搭子" id="persona-avatar"><div><strong id="persona-name">鲸鱼娘 · 小汐</strong><small><span class="pulse"></span> 好奇心满格，随时开读</small></div></div><select id="persona" aria-label="选择讲解角色"><option value="whale">鲸鱼娘</option><option value="mochi">温柔搭子</option><option value="senpai">学姐模式</option></select></div>
+            <div class="chat-log" id="chat-log" aria-live="polite">
+              <div class="welcome"><div class="hero-mochi"><img src="./mochi.svg" alt="阅读搭子角色立绘"><span class="floating-star star-a">✦</span><span class="floating-star star-b">✧</span><span class="bubble">先读懂，再开饭～</span></div><h3>你好呀，我是鲸鱼娘 <span>~</span></h3><p>复杂的概念，我们一点点拆开。<br>我的回答会带上原文出处，方便你回看。</p><div class="welcome-tags"><span>原文引用</span><span>知识卡片</span><span>阅读自测</span></div><button class="text-button profile-link" type="button">认识你的阅读搭子 ↗</button></div>
+            </div>
+            <div class="quick-actions"><button id="explain-button">✦ 讲解重点</button><button id="study-button">◇ 生成学习卡</button><button id="quiz-button">✓ 检查理解</button></div>
+            <form class="composer" id="chat-form"><label class="sr-only" for="question">向糯米提问</label><textarea id="question" rows="2" placeholder="哪里没看懂？问问糯米…" maxlength="1000"></textarea><div class="composer-bottom"><span id="composer-note">先导入一篇文章，开始有依据的对话</span><button type="submit" class="send-button" id="send-button" aria-label="发送问题">↑</button><button type="button" class="stop-button hidden" id="stop-button">停止</button></div></form>
+            <div class="ai-footnote">AI 可能出错，引用可帮助核对原文。</div>
+          </section>
+        </div>
+        <div class="workspace-caption"><span>✧ 每读懂一点，都是在靠近更好的自己。</span><span>LOCAL FIRST. LEARN TOGETHER.</span></div>
+      </section>
+      <section class="workspace hidden" id="cards-view"><div class="page-heading"><div class="eyebrow">SMALL CARDS, BIG IDEAS</div><h1>把理解，装进口袋<span class="hand-star">◇</span></h1><p>从当前文章整理学习卡，再用小测检验理解。</p></div><div class="study-toolbar"><span class="mode-badge" id="study-mode"></span><button class="primary" id="generate-cards">✦ 生成本篇学习卡</button><button class="secondary" id="export-button">↓ 导出 Markdown</button></div><div id="study-content"><div class="study-empty panel"><img src="./mochi.svg" alt=""><h3>知识还在路上</h3><p>导入文章后，生成你的第一组学习卡。</p></div></div></section>
+      <footer class="statusbar"><span id="status" role="status">糯米准备好了。</span><span>Mochi Reader · v0.1</span></footer>
+    </main>
+  </div>
+  <dialog id="import-dialog"><form id="import-form"><div class="dialog-heading"><div><div class="eyebrow">START SOMETHING GOOD</div><h2>导入阅读材料</h2></div><button type="button" class="icon-button" data-close aria-label="关闭">×</button></div><p class="dialog-note">正文存入本机服务。启用 DeepSeek 后，提问相关片段会发送到模型提供商。</p><button type="button" class="secondary hidden" id="capture-button">▧ 读取当前网页 / 选中文本</button><label for="article-title">文章标题</label><input id="article-title" required maxlength="200" placeholder="例如：读懂 RAG 的检索过程"><label for="article-url">来源链接 <span class="optional">选填</span></label><input id="article-url" type="url" maxlength="2048" placeholder="https://…"><label for="article-text">文章正文</label><textarea id="article-text" required minlength="30" maxlength="80000" rows="9" placeholder="粘贴文章内容，或用浏览器插件读取当前页面…"></textarea><div class="dialog-actions"><button class="text-button" type="button" id="fill-sample">使用示例</button><button class="primary" type="submit" id="save-article">导入并开始阅读 →</button></div></form></dialog>
+  <dialog id="settings-dialog"><div class="dialog-heading"><div><div class="eyebrow">YOUR LOCAL COMPANION</div><h2>连接设置</h2></div><button class="icon-button" data-close aria-label="关闭">×</button></div><div class="settings-card"><span class="pulse"></span><div id="connection-info">正在检查本机服务…</div></div><p>默认连接 <code>http://127.0.0.1:8765</code>。API 密钥只在本机服务的环境变量中配置，浏览器不保存密钥。</p><p>没有密钥时进入「演示 · 原文摘录」模式：可检索、引用、生成摘录卡和自测。连接 DeepSeek 后可使用自然语言讲解与生成式学习卡。</p><p>资料存储在本机 SQLite 数据库；启用在线模型时，相关原文片段与问题会发送到 DeepSeek。没有遥测。</p><button class="primary" id="retry-connection">重新检查连接</button></dialog>
+  <dialog id="character-dialog"><div class="dialog-heading"><div><div class="eyebrow">MEET YOUR READING BUDDY</div><h2 id="character-title">鲸鱼娘 · 小汐</h2></div><button class="icon-button" data-close aria-label="关闭">×</button></div><div class="character-profile"><img id="character-image" src="./mochi.svg" alt="阅读搭子角色立绘"><div><div class="character-tags" id="character-tags"></div><p id="character-description"></p><blockquote id="character-quote"></blockquote></div></div><p class="character-disclosure">鲸鱼娘角色受 DeepSeek 社区二创文化启发。「小汐」是本项目别名；本项目与 DeepSeek 无官方合作关系。讲解风格通过提示词配置，演示模式仅输出原文摘录。</p></dialog>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

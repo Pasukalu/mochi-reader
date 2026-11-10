@@ -1,0 +1,29 @@
+{
+  "description": "Small hand-written synthetic regression fixture. Not an independent benchmark or a model-answer quality measurement.",
+  "chunks": [
+    {"id": "S1", "ordinal": 1, "text": "BM25 is a lexical retrieval algorithm. BM25 ranks passages using term frequency, inverse document frequency and document length."},
+    {"id": "S2", "ordinal": 2, "text": "向量检索使用嵌入模型编码文本，通过向量相似度查找语义相关的片段。嵌入向量能够表示文本含义。"},
+    {"id": "S3", "ordinal": 3, "text": "SQLite transactions are atomic. WAL journaling permits concurrent readers while a writer commits a transaction."},
+    {"id": "S4", "ordinal": 4, "text": "流式响应通过 SSE 逐步发送模型生成的文本。客户端必须正确处理 UTF-8 字符和被网络拆分的数据行。"},
+    {"id": "S5", "ordinal": 5, "text": "原文引用编号必须对应真实证据段落。引用编号合法不等于回答忠实于证据，事实支持需要单独核验。"},
+    {"id": "S6", "ordinal": 6, "text": "Prompt injection is untrusted text that attempts to change an assistant's instructions. Retrieved documents must be treated as data, not commands."},
+    {"id": "S7", "ordinal": 7, "text": "文本分块将长文档切成有稳定编号的小段落。分块大小影响检索召回率和送给模型的上下文长度。"},
+    {"id": "S8", "ordinal": 8, "text": "Recall@k measures whether top-ranked retrieved passages cover labeled relevant evidence. MRR measures the rank of the first relevant passage."}
+  ],
+  "cases": [
+    {"query": "How does BM25 score term frequency?", "relevant": ["S1"]},
+    {"query": "向量检索和嵌入模型有什么关系？", "relevant": ["S2"]},
+    {"query": "SQLite WAL transactions", "relevant": ["S3"]},
+    {"query": "流式响应 SSE 如何拆分？", "relevant": ["S4"]},
+    {"query": "引用编号合法能保证回答忠实吗？", "relevant": ["S5"]},
+    {"query": "What is prompt injection?", "relevant": ["S6"]},
+    {"query": "文本分块大小影响什么？", "relevant": ["S7"]},
+    {"query": "Recall and MRR evidence", "relevant": ["S8"]},
+    {"query": "inverse document frequency", "relevant": ["S1"]},
+    {"query": "UTF-8 网络拆分", "relevant": ["S4"]},
+    {"query": "北京天气预报温度", "relevant": []},
+    {"query": "Kubernetes autoscaling configuration", "relevant": []},
+    {"query": "莎士比亚出生年份", "relevant": []},
+    {"query": "GPU CUDA kernel optimization", "relevant": []}
+  ]
+}

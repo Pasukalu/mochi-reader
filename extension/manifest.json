@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Mochi Reader · 糯米阅读搭子",
+  "version": "0.1.0",
+  "description": "技术文章的二次元阅读搭子：原文引用问答、知识卡片与自测。连接你的本地 Mochi 服务。",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "sidePanel"],
+  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "action": {
+    "default_title": "打开糯米阅读搭子"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "web/index.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://127.0.0.1:8765"
+  }
+}
